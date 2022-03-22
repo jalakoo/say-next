@@ -33,6 +33,9 @@ def header():
 def dashboard():
     st.header('1. Select languages')
 
+    lang = data.read_languages()
+    print(f'languages: {lang}')
+
     col1, col2 = st.columns(2)
     with col1:
         user_language_code_key = st.selectbox('Your language', iso_languages.keys())
@@ -40,15 +43,29 @@ def dashboard():
     with col2:
         language_code_key = st.selectbox('Learning', iso_languages.keys())
         language_code = iso_languages[language_code_key]
+
+    print(f'user_language_code selected: {user_language_code}')
     print(f'language_code selected: {language_code}')
 
     st.markdown('--------\n')
-
-    phrases = data.get_phrases(st.session_state['current_phrase'])
-    if len(phrases) != 0:
-        current_phrase = st.selectbox('Select a Phrase', phrases)
-        st.session_state['current_phrase'] = current_phrase
+    if 'current_phrase' not in st.session_state:
+        st.session_state['current_phrase'] = ''
+    current_phrase = st.session_state['current_phrase']
+    all_phrases = data.get_all_phrases(user_language_code, language_code)
+    st.selectbox('Select a new phrase', all_phrases)
+    phrases = data.get_phrases(current_phrase, user_language_code, language_code)
+    print(f'current_phrase: {current_phrase}')
+    print(f'phrases: {phrases}')
+    st.text(f'Current phrase: {current_phrase}')
+    if current_phrase != None and current_phrase != "" and len(phrases) == 0:
+        # st.selectbox('Select a Phrase', [current_phrase])
+        st.header('2. Add follow-up phrases')
+    elif phrases != None and len(phrases) != 0:
+        # current_phrase = st.selectbox('Select a Phrase', phrases)
+        # st.session_state['current_phrase'] = current_phrase
         st.header('2. Next Phrases')
+        for phrase in phrases:
+            st.text(phrase)
     else:
         st.header('2. New language')
         st.text("""
@@ -58,11 +75,24 @@ def dashboard():
         
     st.markdown('--------\n')
 
-    with st.form(key="new_phrase"):
-        new_phrase = st.text_input('Add New Phrase')
-        if 'current_phrase' in locals():
+    with st.form(key="new_phrase", clear_on_submit=True):
+        new_phrase = st.text_input(f'Add New {language_code_key} phrase')
+        equal_phrase = st.text_input(f'Equals the {user_language_code_key} phrase')
+        prior_phrase = current_phrase
+        if 'current_phrase' in locals() and current_phrase != '':
             should_link = st.checkbox(f'Follows "{current_phrase}"')
+            if should_link == False:
+                prior_phrase = None
         add_button = st.form_submit_button(label='Add')
+        if add_button:
+            # Commit new phrase
+            try:
+                data.add_phrase(equal_phrase, user_language_code, new_phrase, language_code, prior_phrase)
+                st.session_state['current_phrase'] = new_phrase
+            except Exception as e:
+                print(f'new word submission form ERROR: {e}')
+
+
 
 
 # SIDEBAR

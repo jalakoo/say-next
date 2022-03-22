@@ -62,17 +62,17 @@ class Neo4jConnection:
         except Exception as e:
             print("set_language failed:", e)
 
-    # def set_language(self, language_code):
-    #     def create_language(tx, language_code):
-    #         query = (
-    #             "MERGE (l:Language {{name:$name}})"
-    #         )
-    #         return tx.run(query, name=language_code)
-    #     try:
-    #         with self.__driver.session() as session:
-    #             session.write_transaction(create_language, language_code=language_code)
-    #     except Exception as e:
-    #         print("set_language failed:", e)
+    def create_user(self, user_id):
+        def create(tx):
+            query = (
+                "MERGE (u:User {{name:$userId}})"
+            )
+            return tx.run(query, userId=user_id)
+        try:
+            with self.__driver.session() as session:
+                session.write_transaction(create)
+        except Exception as e:
+            print("create_user failed:", e)
 
     def get_all_phrases(self, user_language_code, target_language_code):
         def get(tx):

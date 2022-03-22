@@ -33,9 +33,29 @@ class FirebaseConnection:
         secret = self.__api_key
         r=requests.post('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={}'.format(secret),data=details)
         #check for errors in result
-        # print(r.json())
+        print(r.json())
         if 'error' in r.json().keys():
             return {'status':'error','message':r.json()['error']['message']}
         #if the registration succeeded
         if 'idToken' in r.json().keys() :
-                return {'status':'success','idToken':r.json()['idToken']}
+                return {'status':'success','idToken':r.json()['idToken'],'email':r.json()['email']}
+
+    def reset_password(self, email):
+        details={
+            'email':email,
+            'requestType': 'PASSWORD_RESET'
+        }
+        # send post request
+        # secret = st.secrets['firebase_api_key']
+        secret = self.__api_key
+        r=requests.post('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={}'.format(secret),data=details)
+        #check for errors in result
+        # Possible ERROR:
+        # {'error': {'code': 400, 'message': 'EMAIL_NOT_FOUND', 'errors': [{'message': 'EMAIL_NOT_FOUND', 'domain': 'global', 'reason': 'invalid'}]}}
+        # Possible SUCCESS:
+        # {'kind': 'identitytoolkit#GetOobConfirmationCodeResponse', 'email': 'name@email.com'}
+        if 'error' in r.json().keys():
+            return {'status':'error','message':r.json()['error']['message']}
+        #if the registration succeeded
+        else :
+            return {'status':'success','email':r.json()['email']}

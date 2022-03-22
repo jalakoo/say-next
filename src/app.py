@@ -8,6 +8,9 @@ iso_languages = constants.ISO_LANGUAGES
 # st.session_state['current_phrase'] = ''
 data = Neo4jConnection(st.secrets['neo4j_uri'], st.secrets['neo4j_user'], st.secrets['neo4j_password'])
 
+CURRENT = 'current_user'
+USER = 'user_token'
+
 # HEADER
 def header():
     st.title('SayNext')
@@ -48,9 +51,9 @@ def dashboard():
     print(f'language_code selected: {language_code}')
 
     st.markdown('--------\n')
-    if 'current_phrase' not in st.session_state:
-        st.session_state['current_phrase'] = ''
-    current_phrase = st.session_state['current_phrase']
+    if CURRENT not in st.session_state:
+        st.session_state[CURRENT] = ''
+    current_phrase = st.session_state[CURRENT]
     all_phrases = data.get_all_phrases(user_language_code, language_code)
     st.selectbox('Select a new phrase', all_phrases)
     phrases = data.get_phrases(current_phrase, user_language_code, language_code)
@@ -79,7 +82,7 @@ def dashboard():
         new_phrase = st.text_input(f'Add New {language_code_key} phrase')
         equal_phrase = st.text_input(f'Equals the {user_language_code_key} phrase')
         prior_phrase = current_phrase
-        if 'current_phrase' in locals() and current_phrase != '':
+        if CURRENT in locals() and current_phrase != '':
             should_link = st.checkbox(f'Follows "{current_phrase}"')
             if should_link == False:
                 prior_phrase = None
@@ -88,7 +91,7 @@ def dashboard():
             # Commit new phrase
             try:
                 data.add_phrase(equal_phrase, user_language_code, new_phrase, language_code, prior_phrase)
-                st.session_state['current_phrase'] = new_phrase
+                st.session_state[CURRENT] = new_phrase
             except Exception as e:
                 print(f'new word submission form ERROR: {e}')
 
@@ -101,38 +104,67 @@ st.sidebar.subheader("Sign in to access your personalized language learning simu
 st.sidebar.markdown("-----")
 
 # AUTHENTICATION
-choice = st.sidebar.selectbox('login/Signup', ['Login', 'Sign up'])
+choice = st.sidebar.selectbox('login / Signup / Reset Password', ['Login', 'Sign up', 'Reset Password'])
 
 # Obtain User Input for email and password
-email = st.sidebar.text_input('Please enter your email address')
-password = st.sidebar.text_input('Please enter your password',type = 'password')
 
 # Sign up Block
 if choice == 'Sign up':
-    # handle = st.sidebar.text_input(
-    #     'Please input your app handle name', value='Default')
-    submit = st.sidebar.button('Create my account')
+    with st.sidebar.form(key='sign_up_form', clear_on_submit=True):
+        email = st.text_input('Email address')
+        password = st.text_input('New password',type = 'password')
+        submit = st.form_submit_button('Create my account')
 
-    if submit:
-        user = firebase.new_user(email, password)
-        st.success('Your account is created suceesfully!')
-        st.balloons()
-        # Sign in?
-        # user = sign_in(email, password)
-        # db.child(user['localId']).child("Handle").set(handle)
-        # db.child(user['localId']).child("ID").set(user['localId'])
-        st.title('Welcome')
-        st.info('Login via login drop down selection')
+        if submit:
+            user = firebase.new_user(email, password)
+            if user['status'] == 'success':
+                st.success('Your account was successfully created! Please login now')
+                st.balloons()
+            else:
+                message = user['message']
+                st.error(f'There was a problem creating your account: {message}')
 # Login Block**
 elif choice == 'Login':
-    login = st.sidebar.checkbox('Login')
-    if login:
-        user = firebase.sign_in(email,password)
-        header()
-        dashboard()
+    if USER not in st.session_state:
+        with st.sidebar.form(key='login_form', clear_on_submit=True):
+            email = st.text_input('Email')
+            password = st.text_input('Password', type='password')
+            login = st.form_submit_button('Login')
+            if login:
+                user = firebase.sign_in(email,password)
+                if user['status'] == 'success':
+
+                    st.session_state[USER] = user
+                    st.experimental_rerun()
+                else:
+                    message = user['message']
+                    st.error(f'Problem logging in: {message}')
     else:
-        st.text('Please login to access') 
+        with st.sidebar.form(key='logout_form', clear_on_submit=True):
+            email = st.session_state[USER]['email']
+            st.text(f'Logged in as:\n{email}')
+            logout = st.form_submit_button('Logout')
+            if logout:
+                del st.session_state[USER]
+                st.experimental_rerun()
+elif choice == 'Reset Password':
+    with st.sidebar.form(key="reset_form", clear_on_submit=True):
+        email = st.text_input('Email')
+        submit = st.form_submit_button('Reset password')
+        if submit:
+            result = firebase.reset_password(email)  
+            if result['status'] == 'error':
+                message = result['message']
+                st.error(f'Reset password error:{message}')
+            elif result['status'] == 'success':
+                st.success('Reset request successful, please check your email')
+            
+
+if USER not in st.session_state:
+    header()
+    original_title = '<p style="font-family:Courier; color:red; font-size: 20px;">Please login</p>'
+    st.markdown(original_title, unsafe_allow_html=True)
 else:
     header()
-    st.text('Please login to access')
+    dashboard()
  

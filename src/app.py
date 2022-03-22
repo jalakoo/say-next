@@ -10,6 +10,7 @@ data = Neo4jConnection(st.secrets['neo4j_uri'], st.secrets['neo4j_user'], st.sec
 
 CURRENT = 'current_user'
 USER = 'user_token'
+USER_ID = 'localId'
 
 # HEADER
 def header():
@@ -40,49 +41,58 @@ def dashboard():
     print(f'languages: {lang}')
 
     col1, col2 = st.columns(2)
+    uid = st.session_state[USER][USER_ID]
     with col1:
         user_language_code_key = st.selectbox('Your language', iso_languages.keys())
         user_language_code = iso_languages[user_language_code_key]
+        _ = data.set_user_language(uid, user_language_code)
     with col2:
         language_code_key = st.selectbox('Learning', iso_languages.keys())
         language_code = iso_languages[language_code_key]
+        data.set_new_language(uid, language_code)
 
     print(f'user_language_code selected: {user_language_code}')
     print(f'language_code selected: {language_code}')
 
     st.markdown('--------\n')
+    st.header('2. Select a Phrase')
+    st.caption('See section 4. to add new phrases.')
     if CURRENT not in st.session_state:
         st.session_state[CURRENT] = ''
     current_phrase = st.session_state[CURRENT]
     all_phrases = data.get_all_phrases(user_language_code, language_code)
-    st.selectbox('Select a new phrase', all_phrases)
+    new_phrase = st.selectbox('', all_phrases)
+    if new_phrase != current_phrase:
+        st.session_state[CURRENT] = new_phrase
+        current_phrase = new_phrase
+
+    st.markdown('--------\n')
     phrases = data.get_phrases(current_phrase, user_language_code, language_code)
-    print(f'current_phrase: {current_phrase}')
-    print(f'phrases: {phrases}')
-    st.text(f'Current phrase: {current_phrase}')
+    # print(f'current_phrase: {current_phrase}')
+    # print(f'phrases: {phrases}')
     if current_phrase != None and current_phrase != "" and len(phrases) == 0:
         # st.selectbox('Select a Phrase', [current_phrase])
-        st.header('2. Add follow-up phrases')
+        st.header('3. Add phrases you can say next')
     elif phrases != None and len(phrases) != 0:
         # current_phrase = st.selectbox('Select a Phrase', phrases)
         # st.session_state['current_phrase'] = current_phrase
-        st.header('2. Next Phrases')
+        st.header('3. Phrases you can say next')
         for phrase in phrases:
             st.text(phrase)
     else:
-        st.header('2. New language')
+        st.header('3. New language')
         st.text("""
         No phrases yet for your selected learning language. 
-        Start by adding new phrase below:
+        Start by adding a new phrase below:
         """)
         
     st.markdown('--------\n')
-
+    st.header('4. Adding new phrases')
     with st.form(key="new_phrase", clear_on_submit=True):
         new_phrase = st.text_input(f'Add New {language_code_key} phrase')
         equal_phrase = st.text_input(f'Equals the {user_language_code_key} phrase')
         prior_phrase = current_phrase
-        if CURRENT in locals() and current_phrase != '':
+        if CURRENT in st.session_state and current_phrase != '':
             should_link = st.checkbox(f'Follows "{current_phrase}"')
             if should_link == False:
                 prior_phrase = None
@@ -92,6 +102,7 @@ def dashboard():
             try:
                 data.add_phrase(equal_phrase, user_language_code, new_phrase, language_code, prior_phrase)
                 st.session_state[CURRENT] = new_phrase
+                st.experimental_rerun()
             except Exception as e:
                 print(f'new word submission form ERROR: {e}')
 
@@ -131,14 +142,18 @@ elif choice == 'Login':
             password = st.text_input('Password', type='password')
             login = st.form_submit_button('Login')
             if login:
-                user = firebase.sign_in(email,password)
-                if user['status'] == 'success':
-
-                    st.session_state[USER] = user
-                    st.experimental_rerun()
-                else:
-                    message = user['message']
-                    st.error(f'Problem logging in: {message}')
+                try: 
+                    user = firebase.sign_in(email,password)
+                    if user['status'] == 'success':
+                        uid = user['localId']
+                        result = data.create_user(uid)
+                        st.session_state[USER] = user
+                        st.experimental_rerun()
+                    else:
+                        message = user['message']
+                        st.error(f'Problem logging in: {message}')
+                except Exception as e:
+                    st.error(f'Login error: {e}')
     else:
         with st.sidebar.form(key='logout_form', clear_on_submit=True):
             email = st.session_state[USER]['email']

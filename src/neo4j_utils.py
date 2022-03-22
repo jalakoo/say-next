@@ -34,19 +34,47 @@ class Neo4jConnection:
     #             session.close()
     #     return response
 
-    # def write_query(self, tx, **kwparameters):
-    #     assert self.__driver is not None, "Driver not initialized!"
-    #     session = None
-    #     response = None
-    #     try:
-    #         session = self.__driver.session()
-    #         response = list(session.write_transaction(cypher, kwparameters))
-    #     except Exception as e:
-    #         print("Query failed:", e)
-    #     finally:
-    #         if session is not None:
-    #             session.close()
-    #     return response
+    def read(self, query, **kwargs):
+        def execute(tx):
+            result = tx.run(execute, kwargs)
+            return result
+        try:
+            with self.__driver.session() as session:
+                return session.read_transaction(execute)
+        except Exception as e:
+            print("write failed:", e)
+
+    def write(self, query, **kwargs):
+        def execute(tx):
+            result = tx.run(query, kwargs)
+            return result
+        try:
+            with self.__driver.session() as session:
+                return session.write_transaction(execute)
+        except Exception as e:
+            print("write failed:", e)
+
+    def set_user_language(self, user_id, language_code):
+        query = """
+            MATCH (u:User {name: $userId})
+            MATCH (l:Language {name:$languageCode})
+            MERGE (u)-[:SPEAKS]->(l)
+        """
+        try:
+            result = self.write(query, userId=user_id, languageCode=language_code)
+        except Exception as e:
+            print(e)
+
+    def set_new_language(self, user_id, language_code):
+        query = """
+            MATCH (u:User {name: $userId})
+            MATCH (l:Language {name: $languageCode})
+            MERGE (u)-[:LEARNING]->(l)
+        """
+        try:
+            return self.write(query, userId=user_id, languageCode=language_code)
+        except Exception as e:
+            print(e)
 
     def read_languages(self):
         def get_language(tx):
@@ -64,13 +92,16 @@ class Neo4jConnection:
 
     def create_user(self, user_id):
         def create(tx):
-            query = (
-                "MERGE (u:User {{name:$userId}})"
-            )
-            return tx.run(query, userId=user_id)
+            query = """
+                MERGE (u:User {name:$userId})
+                RETURN u
+            """
+            result = tx.run(query, userId=user_id).single()
+            # print(f'create_user: result: {result}')
+            return result['u']['name']
         try:
             with self.__driver.session() as session:
-                session.write_transaction(create)
+                return session.write_transaction(create)
         except Exception as e:
             print("create_user failed:", e)
 

@@ -29,16 +29,17 @@ class FirebaseConnection:
             'returnSecureToken': True
         }
         # send post request
-        # secret = st.secrets['firebase_api_key']
         secret = self.__api_key
         r=requests.post('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={}'.format(secret),data=details)
         #check for errors in result
-        print(r.json())
+        # print(f'sign_in: {r.json()}')
+        # EXAMPLE SUCCESS
+        # {'kind': 'identitytoolkit#VerifyPasswordResponse', 'localId': '<user_id>', 'email': 'email@email.com', 'displayName': '', 'idToken': '<long_token_string>', 'registered': True, 'refreshToken': '<refresh_token_string>', 'expiresIn': '3600'}
         if 'error' in r.json().keys():
             return {'status':'error','message':r.json()['error']['message']}
         #if the registration succeeded
         if 'idToken' in r.json().keys() :
-                return {'status':'success','idToken':r.json()['idToken'],'email':r.json()['email']}
+                return {'status':'success','idToken':r.json()['idToken'],'email':r.json()['email'], 'localId':r.json()['localId']}
 
     def reset_password(self, email):
         details={
@@ -46,7 +47,6 @@ class FirebaseConnection:
             'requestType': 'PASSWORD_RESET'
         }
         # send post request
-        # secret = st.secrets['firebase_api_key']
         secret = self.__api_key
         r=requests.post('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={}'.format(secret),data=details)
         #check for errors in result

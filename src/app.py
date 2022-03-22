@@ -2,6 +2,7 @@ import streamlit as st
 from firebase_utils import FirebaseConnection
 from neo4j_utils import Neo4jConnection
 import constants
+import numpy as np
 
 firebase = FirebaseConnection(st.secrets['firebase_api_key'])
 iso_languages = constants.ISO_LANGUAGES
@@ -34,34 +35,52 @@ def header():
     st.markdown('--------\n')
 
 # DASHBOARD
+DEFAULT = ''
+
+def selectbox_with_default(text, values, default=DEFAULT, sidebar=False):
+    print(values)
+
+    func = st.sidebar.selectbox if sidebar else st.selectbox
+    return func(text, np.insert(np.array(values, object), 0, default))
+    # return func(text, values.insert(0, default))
+
 def dashboard():
     st.header('1. Select languages')
-
-    lang = data.read_languages()
-    print(f'languages: {lang}')
-
     col1, col2 = st.columns(2)
     uid = st.session_state[USER][USER_ID]
     with col1:
-        user_language_code_key = st.selectbox('Your language', iso_languages.keys())
-        user_language_code = iso_languages[user_language_code_key]
-        _ = data.set_user_language(uid, user_language_code)
+        # user_language_code_key = st.selectbox('Your language', iso_languages.keys())
+        user_language_code_key = selectbox_with_default('Your language', [*iso_languages.keys()])
+        if user_language_code_key == DEFAULT:
+            # st.warning("Please fill all the fields!")
+            st.stop()
+        else:
+            user_language_code = iso_languages[user_language_code_key]
+            _ = data.set_user_language(uid, user_language_code)
     with col2:
-        language_code_key = st.selectbox('Learning', iso_languages.keys())
-        language_code = iso_languages[language_code_key]
-        data.set_new_language(uid, language_code)
-
-    print(f'user_language_code selected: {user_language_code}')
-    print(f'language_code selected: {language_code}')
+        # language_code_key = st.selectbox('Learning', iso_languages.keys())
+        language_code_key = selectbox_with_default('Learning', [*iso_languages.keys()])
+        if language_code_key == DEFAULT:
+            # st.warning("Please fill all the fields!")
+            st.stop()
+        else:
+            language_code = iso_languages[language_code_key]
+            data.set_new_language(uid, language_code)
+    # print(f'user_language_code selected: {user_language_code}')
+    # print(f'language_code selected: {language_code}')
 
     st.markdown('--------\n')
+
     st.header('2. Select a Phrase')
-    st.caption('See section 4. to add new phrases.')
     if CURRENT not in st.session_state:
         st.session_state[CURRENT] = ''
     current_phrase = st.session_state[CURRENT]
     all_phrases = data.get_all_phrases(user_language_code, language_code)
-    new_phrase = st.selectbox('', all_phrases)
+    # new_phrase = st.selectbox('', all_phrases)
+    new_phrase = selectbox_with_default('', all_phrases)
+    if new_phrase == DEFAULT:
+        add_phrase_block(user_language_code_key, user_language_code, language_code_key, language_code, current_phrase)
+        st.stop()
     if new_phrase != current_phrase:
         st.session_state[CURRENT] = new_phrase
         current_phrase = new_phrase
@@ -86,11 +105,34 @@ def dashboard():
         Start by adding a new phrase below:
         """)
         
+    add_phrase_block(user_language_code_key, user_language_code, language_code_key, language_code, current_phrase)
+    # st.markdown('--------\n')
+
+    # st.header('4. Adding new phrases')
+    # with st.form(key="new_phrase", clear_on_submit=True):
+    #     new_phrase = st.text_input(f'Add New {language_code_key} phrase')
+    #     equal_phrase = st.text_input(f'Equals the {user_language_code_key} phrase')
+    #     prior_phrase = current_phrase
+    #     if CURRENT in st.session_state and current_phrase != '':
+    #         should_link = st.checkbox(f'Follows "{current_phrase}"')
+    #         if should_link == False:
+    #             prior_phrase = None
+    #     add_button = st.form_submit_button(label='Add')
+    #     if add_button:
+    #         # Commit new phrase
+    #         try:
+    #             data.add_phrase(equal_phrase, user_language_code, new_phrase, language_code, prior_phrase)
+    #             st.session_state[CURRENT] = new_phrase
+    #             st.experimental_rerun()
+    #         except Exception as e:
+    #             print(f'new word submission form ERROR: {e}')
+
+def add_phrase_block(user_language_key, user_language, new_language_key, new_language, current_phrase):
     st.markdown('--------\n')
-    st.header('4. Adding new phrases')
+    st.header('+ Add new phrase')
     with st.form(key="new_phrase", clear_on_submit=True):
-        new_phrase = st.text_input(f'Add New {language_code_key} phrase')
-        equal_phrase = st.text_input(f'Equals the {user_language_code_key} phrase')
+        new_phrase = st.text_input(f'Add New {new_language_key} phrase')
+        equal_phrase = st.text_input(f'Equals the {user_language_key} phrase')
         prior_phrase = current_phrase
         if CURRENT in st.session_state and current_phrase != '':
             should_link = st.checkbox(f'Follows "{current_phrase}"')
@@ -100,12 +142,11 @@ def dashboard():
         if add_button:
             # Commit new phrase
             try:
-                data.add_phrase(equal_phrase, user_language_code, new_phrase, language_code, prior_phrase)
+                data.add_phrase(equal_phrase, user_language, new_phrase, new_language, prior_phrase)
                 st.session_state[CURRENT] = new_phrase
                 st.experimental_rerun()
             except Exception as e:
                 print(f'new word submission form ERROR: {e}')
-
 
 
 

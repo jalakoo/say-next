@@ -1,7 +1,6 @@
 import streamlit as st
 from firebase_utils import FirebaseConnection
 from constants import *
-import numpy as np
 from neo4j_repo import Neo4jRepository
 
 firebase = FirebaseConnection(st.secrets['firebase_api_key'])
@@ -31,7 +30,11 @@ def header():
 # DASHBOARD
 def selectbox_with_default(text, values, default=DEFAULT, sidebar=False):
     func = st.sidebar.selectbox if sidebar else st.selectbox
-    return func(text, np.insert(np.array(values, object), 0, default))
+    new_list = values[:]
+    new_list.insert(0, default)
+    return func(text, new_list)
+    # Using numpy instead
+    # return func(text, np.insert(np.array(values, object), 0, default))
 
 def update_state(key, value):
     """
@@ -56,7 +59,7 @@ def dashboard():
     # Successful login stores the User object in state
     uid = st.session_state[USER][USER_ID]
     with col1:
-        user_language_code_key = selectbox_with_default('Your language', [*ISO_LANGUAGES.keys()])
+        user_language_code_key = selectbox_with_default('Your language', list(ISO_LANGUAGES.keys()))
         if user_language_code_key == DEFAULT:
             # No option selected
             st.stop()
@@ -68,7 +71,7 @@ def dashboard():
                 # User selection has changed
                 n4j.set_user_language(uid, user_language_code, 'SPEAKS')
     with col2:
-        language_code_key = selectbox_with_default('Learning', [*ISO_LANGUAGES.keys()])
+        language_code_key = selectbox_with_default('Learning', list(ISO_LANGUAGES.keys()))
         if language_code_key == DEFAULT:
             # No option selected
             st.stop()
@@ -196,9 +199,9 @@ def sidebar():
                             st.session_state[USER] = user
                             # TODO: While we're here lets see
                             # if the user had prior language prefs
-                            usr_lang, new_lang = n4j.get_user_preferences(uid)
-                            update_state(USER_LANGUAGE_CODE, usr_lang)
-                            update_state(NEW_LANGUAGE_CODE, new_lang)
+                            # usr_lang, new_lang = n4j.get_user_preferences(uid)
+                            # update_state(USER_LANGUAGE_CODE, usr_lang)
+                            # update_state(NEW_LANGUAGE_CODE, new_lang)
                             st.experimental_rerun()
                         else:
                             message = user['message']

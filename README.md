@@ -4,7 +4,8 @@ Streamlit app for adding and traversing conversational language phrases based on
 ## Running
 ```
 pipenv shell
-streamlit run app.py
+pipenv sync
+streamlit run src/app.py
 ```
 
 

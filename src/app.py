@@ -51,13 +51,12 @@ def update_state(key, value):
         return True
     return False
 
-
 def dashboard():
     # Step 1. Select user language preferences
     st.header('1. Select languages')
     col1, col2 = st.columns(2)
     # Successful login stores the User object in state
-    uid = st.session_state[USER][USER_ID]
+    # uid = st.session_state[USER][USER_ID]
     with col1:
         user_language_code_key = selectbox_with_default('Your language', list(ISO_LANGUAGES.keys()))
         if user_language_code_key == DEFAULT:
@@ -69,7 +68,9 @@ def dashboard():
             is_new_user_language = update_state(USER_LANGUAGE_CODE, user_language_code_key)
             if is_new_user_language == True: 
                 # User selection has changed
-                n4j.set_user_language(uid, user_language_code, 'SPEAKS')
+                if USER in st.session_state:
+                    uid = st.session_state[USER][USER_ID]
+                    n4j.set_user_language(uid, user_language_code, 'SPEAKS')
     with col2:
         language_code_key = selectbox_with_default('Learning', list(ISO_LANGUAGES.keys()))
         if language_code_key == DEFAULT:
@@ -78,7 +79,9 @@ def dashboard():
         else:
             language_code = ISO_LANGUAGES[language_code_key]
             if update_state(NEW_LANGUAGE_CODE, language_code_key) == True: 
-                n4j.set_user_language(uid, language_code, 'LEARNING')
+                if USER in st.session_state:
+                    uid = st.session_state[USER][USER_ID]
+                    n4j.set_user_language(uid, language_code, 'LEARNING')
 
     st.markdown('--------\n')
     
@@ -109,7 +112,11 @@ def dashboard():
         # Step 3. Selecting things to say next
         phrases = n4j.conn.get_phrases(current_phrase, user_language_code, language_code)
         if current_phrase != None and current_phrase != "" and len(phrases) == 0:
-            st.header('3. Add phrases you can say next')
+            if USER not in st.session_state:
+                st.header('3. No phrases to say next')
+                st.caption(f'Log in to be the first to add a new phrase in {language_code_key}!')
+            else:
+                st.header('3. Add phrases you can say next')
         elif phrases != None and len(phrases) != 0:
             st.header('3. Phrases you can say next')
             for phrase in phrases:
@@ -127,6 +134,9 @@ def dashboard():
     add_phrase_block(user_language_code_key, user_language_code, language_code_key, language_code, current_phrase)
 
 def add_phrase_block(user_language_key, user_language, new_language_key, new_language, current_phrase):
+    if USER not in st.session_state:
+        # Only allow logged in users to add new phrases
+        return
     st.markdown('--------\n')
     st.header('+ Add new phrase')
     with st.form(key="new_phrase", clear_on_submit=True):
@@ -161,7 +171,7 @@ def add_phrase_block(user_language_key, user_language, new_language_key, new_lan
 
 # SIDEBAR
 def sidebar():
-    st.sidebar.subheader("Sign in to access your personalized language learning simulation")
+    st.sidebar.subheader("Sign in to add new phrases")
     st.sidebar.markdown("-----")
 
     # AUTHENTICATION
@@ -232,14 +242,16 @@ def sidebar():
 
 # LAYDOWN UI
 sidebar()
+header()
+dashboard()
 
-if USER not in st.session_state:
-    # Logged out state
-    header()
-    original_title = '<p style="font-family:Courier; color:red; font-size: 20px;">Please login to begin</p>'
-    st.markdown(original_title, unsafe_allow_html=True)
-else:
-    # Logged in - display main UI
-    header()
-    dashboard()
+# if USER not in st.session_state:
+#     # Logged out state
+#     header()
+#     original_title = '<p style="font-family:Courier; color:red; font-size: 20px;">Please login to begin</p>'
+#     st.markdown(original_title, unsafe_allow_html=True)
+# else:
+#     # Logged in - display main UI
+#     header()
+#     dashboard()
  
